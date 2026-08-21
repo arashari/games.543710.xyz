@@ -229,10 +229,13 @@ function makeCar() {
   scene.add(g);
   const nitro = new THREE.Group();
   for (const fx of [-0.6, 0.6]) {
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.5, 12),
-      new THREE.MeshBasicMaterial({ color: 0x66ddff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
-    flame.rotation.x = Math.PI / 2; flame.position.set(fx, 0.7, 2.0);
-    nitro.add(flame);
+    const outer = new THREE.Mesh(new THREE.ConeGeometry(0.34, 2.3, 14),
+      new THREE.MeshBasicMaterial({ color: 0xff6a00, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+    outer.rotation.x = Math.PI / 2; outer.position.set(fx, 0.7, 2.0);
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.35, 14),
+      new THREE.MeshBasicMaterial({ color: 0xffe14a, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+    inner.rotation.x = Math.PI / 2; inner.position.set(fx, 0.7, 2.0);
+    nitro.add(outer); nitro.add(inner);
   }
   nitro.visible = false; g.add(nitro);
   return { group: g, wheels, nitro };
@@ -382,8 +385,8 @@ function update(dt) {
   const gas = keys.Space || keys.KeyW || keys.ArrowUp;
   car.nitro.visible = gas;
   if (gas) {
-    const f = 0.7 + Math.random() * 0.7;
-    for (const fl of car.nitro.children) { fl.scale.set(1, f, 1); fl.material.opacity = 0.6 + Math.random() * 0.4; }
+    const f = 0.8 + Math.random() * 0.5;
+    for (const fl of car.nitro.children) { fl.scale.y = f; fl.material.opacity = 0.6 + Math.random() * 0.4; }
   }
   camera.fov += ((gas ? 74 : 62) - camera.fov) * Math.min(1, dt * 4);
   camera.updateProjectionMatrix();
