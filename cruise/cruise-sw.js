@@ -1,4 +1,4 @@
-const CACHE = 'web-addictive-cruise-v3';
+const CACHE = 'web-addictive-cruise-v4';
 const CORE = ['/cruise/', '/cruise/manifest.json', '/cruise/cruise-icon.svg'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));

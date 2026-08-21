@@ -227,7 +227,15 @@ function makeCar() {
     hl.position.set(hx, 0.7, -1.8); g.add(hl);
   }
   scene.add(g);
-  return { group: g, wheels };
+  const nitro = new THREE.Group();
+  for (const fx of [-0.6, 0.6]) {
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.22, 1.5, 12),
+      new THREE.MeshBasicMaterial({ color: 0x66ddff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+    flame.rotation.x = Math.PI / 2; flame.position.set(fx, 0.7, 2.0);
+    nitro.add(flame);
+  }
+  nitro.visible = false; g.add(nitro);
+  return { group: g, wheels, nitro };
 }
 const car = makeCar();
 
@@ -372,6 +380,13 @@ function update(dt) {
   car.group.rotation.y += (steer * 0.12 - car.group.rotation.y) * Math.min(1, dt * 8);
 
   const gas = keys.Space || keys.KeyW || keys.ArrowUp;
+  car.nitro.visible = gas;
+  if (gas) {
+    const f = 0.7 + Math.random() * 0.7;
+    for (const fl of car.nitro.children) { fl.scale.set(1, f, 1); fl.material.opacity = 0.6 + Math.random() * 0.4; }
+  }
+  camera.fov += ((gas ? 74 : 62) - camera.fov) * Math.min(1, dt * 4);
+  camera.updateProjectionMatrix();
   const base = BASE_SPEED + Math.min(16, dist * 0.012);
   const target = gas ? base * 1.7 : base;
   speed += (target - speed) * Math.min(1, dt * 3);
@@ -443,6 +458,7 @@ function burstConfetti() {
 }
 function gameOver() {
   running = false;
+  car.nitro.visible = false;
   if (score > best) { best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {} }
   winEmoji.textContent = "💥"; winTitle.textContent = "Game Over";
   winSub.textContent = `Score ${score}  ·  Best ${best}`;
@@ -459,6 +475,7 @@ function startGame() {
   lastSpawnZ = player.z - 30;
   overlay.classList.remove("show"); confettiBox.innerHTML = "";
   car.group.visible = true; car.group.rotation.set(0, 0, 0); car.group.position.set(0, 0, 0);
+  car.nitro.visible = false; camera.fov = 62; camera.updateProjectionMatrix();
   camera.position.set(0, 3.4, 6.5);
   updateHUD();
   spawnToast("Cruise! 🚗");
