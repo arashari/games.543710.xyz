@@ -383,10 +383,13 @@ function update(dt) {
   car.group.rotation.y += (steer * 0.12 - car.group.rotation.y) * Math.min(1, dt * 8);
 
   const gas = keys.Space || keys.KeyW || keys.ArrowUp;
-  car.nitro.visible = gas;
+  car.nitro.visible = running;
   if (gas) {
     const f = 0.8 + Math.random() * 0.5;
     for (const fl of car.nitro.children) { fl.scale.y = f; fl.material.opacity = 0.6 + Math.random() * 0.4; }
+  } else {
+    const p = 0.85 + 0.18 * Math.sin(elapsed * 3);
+    for (const fl of car.nitro.children) { fl.scale.y = p; fl.material.opacity = 0.4 + 0.12 * Math.sin(elapsed * 3); }
   }
   camera.fov += ((gas ? 74 : 62) - camera.fov) * Math.min(1, dt * 4);
   camera.updateProjectionMatrix();
