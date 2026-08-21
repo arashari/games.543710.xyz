@@ -379,6 +379,7 @@ function update(dt) {
   player.z -= speed * dt; dist += speed * dt;
   wheelSpin += speed * dt * 2.2;
   for (const w of car.wheels) w.rotation.x = wheelSpin;
+  car.group.position.set(player.x, 0, player.z);
 
   grass.position.z = player.z; road.position.z = player.z;
   roadTex.offset.y = (dist * 0.03) % 1;
@@ -457,7 +458,7 @@ function startGame() {
   for (const c of coins) { c.active = false; c.mesh.visible = false; }
   lastSpawnZ = player.z - 30;
   overlay.classList.remove("show"); confettiBox.innerHTML = "";
-  car.group.visible = true; car.group.rotation.set(0, 0, 0);
+  car.group.visible = true; car.group.rotation.set(0, 0, 0); car.group.position.set(0, 0, 0);
   camera.position.set(0, 3.4, 6.5);
   updateHUD();
   spawnToast("Cruise! 🚗");
