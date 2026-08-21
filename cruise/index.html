@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Car Cruise 3D</title>
+<meta name="theme-color" content="#7ec8ff" />
+<link rel="manifest" href="/cruise/manifest.json" />
+<link rel="apple-touch-icon" href="/cruise/cruise-icon.svg" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="CarCruise" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #7ec8ff; font-family: "Trebuchet MS", system-ui, sans-serif; color: #fff; overscroll-behavior: none; touch-action: none; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  #hud {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10;
+    display: flex; flex-direction: column; align-items: center; gap: 7px; pointer-events: none;
+    background: rgba(10, 22, 40, 0.5);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    padding: 8px 18px 10px; border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.18);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    min-width: 250px; max-width: 92vw;
+  }
+  #stats { font-size: clamp(14px, 3.4vw, 19px); font-weight: 800; letter-spacing: .01em; display: flex; gap: 6px; }
+  #stats span { background: rgba(255,255,255,.10); border-radius: 10px; padding: 2px 9px; white-space: nowrap; }
+
+  #hint {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center;
+    font-size: 12px; opacity: .85; pointer-events: none;
+    background: rgba(10,22,40,0.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    padding: 6px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); max-width: 92vw;
+  }
+
+  #toast {
+    position: fixed; top: 30%; left: 50%; transform: translateX(-50%); z-index: 18;
+    font-size: 30px; font-weight: 900; color: #ffd24a; text-shadow: 0 2px 0 #0008;
+    opacity: 0; transition: opacity .18s; pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+
+  #flash { position: fixed; inset: 0; background: #ff2b2b; opacity: 0; pointer-events: none; z-index: 15; transition: opacity .12s; }
+
+  #joy {
+    position: fixed; left: 18px; bottom: 18px; width: 130px; height: 130px; z-index: 12;
+    border-radius: 50%; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.20);
+    touch-action: none; display: none; align-items: center; justify-content: center;
+  }
+  #joyKnob {
+    width: 58px; height: 58px; border-radius: 50%; background: rgba(255,210,74,.85);
+    box-shadow: 0 4px 14px #0007; position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%); pointer-events: none;
+  }
+  #joyLabel { position: absolute; bottom: -20px; font-size: 10px; letter-spacing: .25em; opacity: .6; }
+  #btns { position: fixed; right: 18px; bottom: 18px; z-index: 12; display: none; align-items: flex-end; }
+  body.touch #joy, body.touch #btns { display: flex; }
+  .act {
+    border-radius: 50%; border: 2px solid rgba(255,255,255,.3); color: #fff;
+    font-weight: 900; font-size: 16px; letter-spacing: .04em; touch-action: none; user-select: none;
+    display: flex; align-items: center; justify-content: center; -webkit-user-select: none;
+  }
+  #btnGas { width: 104px; height: 104px; background: rgba(77,255,136,.30); box-shadow: 0 6px 18px #0006; }
+  #btnGas:active { background: rgba(77,255,136,.6); }
+
+  #confetti { position: fixed; inset: 0; z-index: 25; pointer-events: none; overflow: hidden; }
+  .conf { position: absolute; top: -24px; border-radius: 2px; opacity: .95; will-change: transform; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(112vh) rotate(720deg); } }
+
+  #overlay {
+    position: fixed; inset: 0; z-index: 20; display: none;
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+    background: radial-gradient(circle at 50% 40%, #1a6fb444, #04060fdd);
+    backdrop-filter: blur(3px); text-align: center;
+  }
+  #overlay.show { display: flex; }
+  #winEmoji { font-size: clamp(90px, 22vw, 180px); line-height: 1; filter: drop-shadow(0 10px 24px rgba(0,0,0,.5)); animation: emojiPop .7s cubic-bezier(.2,1.6,.4,1) both; }
+  @keyframes emojiPop { 0%{transform:scale(0) rotate(-35deg);} 60%{transform:scale(1.25) rotate(8deg);} 100%{transform:scale(1) rotate(0);} }
+  #overlay h1 { font-size: clamp(34px, 8vw, 80px); font-weight: 900;
+    background: linear-gradient(180deg,#fff,#ffd24a 60%,#ff3cac); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 24px #ffd24a66); }
+  #overlay p { font-size: 16px; opacity: .85; }
+  #overlay button { margin-top: 6px; font-size: 18px; font-weight: 800; letter-spacing: .08em; padding: 12px 28px; border: none; border-radius: 14px; cursor: pointer; color: #062a16; background: linear-gradient(180deg,#fff,#4dff88 40%,#1ba98c); box-shadow: 0 10px 30px #0008; }
+  #overlay button:active { transform: scale(.95); }
+
+  @media (max-width: 480px), (max-height: 480px) {
+    #hud { top: 0; left: 0; right: 0; transform: none; width: 100%; max-width: 100%; border-radius: 0; border-left: none; border-right: none; border-top: none; padding: 0.8vh 10px; gap: 0.6vh; min-width: 0; }
+    #stats { width: 100%; justify-content: space-around; flex-wrap: wrap; font-size: clamp(11px, min(3vw,3vh), 16px); }
+    #stats span { padding: 1px 7px; }
+    #hint { font-size: clamp(9px, min(2.6vw,2.6vh), 12px); }
+    #joy { width: 112px; height: 112px; }
+    #btnGas { width: 92px; height: 92px; }
+  }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="hud"><div id="stats"></div></div>
+  <div id="hint">Steer with the joystick · hold <b>GAS</b> to boost · grab coins, dodge cones!</div>
+  <div id="toast"></div>
+  <div id="flash"></div>
+  <div id="confetti"></div>
+
+  <div id="joy"><div id="joyKnob"></div><div id="joyLabel">STEER</div></div>
+  <div id="btns"><div id="btnGas" class="act">GAS</div></div>
+
+  <div id="overlay">
+    <div id="winEmoji">🚗</div>
+    <h1 id="winTitle">Game Over</h1>
+    <p id="winSub"></p>
+    <button id="replay">Cruise again</button>
+  </div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from "three";
+
+// ---------------------------------------------------------------- config
+const ROAD_HALF = 6;            // car may steer within x ∈ [-(ROAD_HALF-0.8), ROAD_HALF-0.8]
+const LANES = [-4.2, -1.4, 1.4, 4.2];
+const BASE_SPEED = 16, BOOST_SPEED = 28;
+const MAX_LIVES = 3, COIN_VAL = 10;
+const SPAWN_AHEAD = 150, WAVE_GAP = 22, RECYCLE_BEHIND = 16;
+const STEER_RATE = 10;
+const BEST_KEY = "cruise_best";
+let best = 0;
+try { best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0; } catch (e) {}
+
+// ---------------------------------------------------------------- renderer / scene
+const app = document.getElementById("app");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const SKY = 0x9fd8ff;
+scene.background = new THREE.Color(SKY);
+scene.fog = new THREE.Fog(SKY, 70, 230);
+
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 400);
+
+scene.add(new THREE.HemisphereLight(0xcfe9ff, 0x5a7a32, 0.95));
+scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+const sun = new THREE.DirectionalLight(0xfff3d6, 1.05);
+sun.position.set(20, 40, 12); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -30; sun.shadow.camera.right = 30;
+sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30; sun.shadow.camera.far = 120;
+scene.add(sun);
+
+let elapsed = 0;
+
+// ---------------------------------------------------------------- world: ground, road, trees
+function makeRoadTexture() {
+  const c = document.createElement("canvas"); c.width = 128; c.height = 512;
+  const g = c.getContext("2d");
+  g.fillStyle = "#3a3f47"; g.fillRect(0, 0, 128, 512);
+  g.fillStyle = "#f4d35e"; g.fillRect(7, 0, 5, 512); g.fillRect(116, 0, 5, 512);
+  g.fillStyle = "#ffffff";
+  for (let y = 0; y < 512; y += 64) g.fillRect(61, y, 6, 34);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 40);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+const roadTex = makeRoadTexture();
+const grass = new THREE.Mesh(new THREE.PlaneGeometry(90, 700),
+  new THREE.MeshStandardMaterial({ color: 0x5fae46, roughness: 1 }));
+grass.rotation.x = -Math.PI / 2; grass.receiveShadow = true; scene.add(grass);
+const road = new THREE.Mesh(new THREE.PlaneGeometry(13, 700),
+  new THREE.MeshStandardMaterial({ map: roadTex, roughness: .9 }));
+road.rotation.x = -Math.PI / 2; road.position.y = 0.02; road.receiveShadow = true; scene.add(road);
+
+// roadside trees (recycled in z to stream past)
+const TREE_SPAN = 168;
+const trees = [];
+function makeTree() {
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 2.2, 8),
+    new THREE.MeshStandardMaterial({ color: 0x7a4a25, roughness: 1 }));
+  trunk.position.y = 1.1; g.add(trunk);
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x2f9e3f, roughness: .9 });
+  for (const f of [[0, 2.8, 0, 1.4], [0.9, 2.5, 0.3, 1.0], [-0.8, 2.6, -0.3, 1.0], [0.1, 3.4, -0.2, 1.0]]) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(f[3], 10, 10), leafMat);
+    s.position.set(f[0], f[1], f[2]); g.add(s);
+  }
+  scene.add(g); return g;
+}
+for (let i = 0; i < 12; i++) {
+  const tl = makeTree(), tr = makeTree();
+  const z = -i * 14;
+  tl.position.set(-(10 + Math.random() * 6), 0, z);
+  tr.position.set(10 + Math.random() * 6, 0, z);
+  trees.push(tl, tr);
+}
+
+// ---------------------------------------------------------------- car
+function makeCar() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.6, 3.6),
+    new THREE.MeshStandardMaterial({ color: 0xff4d5e, roughness: .45, metalness: .2 }));
+  body.position.y = 0.7; body.castShadow = true; g.add(body);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 1.7),
+    new THREE.MeshStandardMaterial({ color: 0x222a3a, roughness: .3, metalness: .4 }));
+  cabin.position.set(0, 1.2, -0.2); cabin.castShadow = true; g.add(cabin);
+  const spoiler = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.12, 0.4),
+    new THREE.MeshStandardMaterial({ color: 0x111111 }));
+  spoiler.position.set(0, 1.05, 1.8); g.add(spoiler);
+  const wheelMat = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: .8 });
+  const wheels = [];
+  for (const [wx, wz] of [[-0.95, -1.2], [0.95, -1.2], [-0.95, 1.2], [0.95, 1.2]]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.32, 14), wheelMat);
+    w.rotation.z = Math.PI / 2; w.position.set(wx, 0.42, wz); w.castShadow = true; g.add(w); wheels.push(w);
+  }
+  const headMat = new THREE.MeshStandardMaterial({ color: 0xfff3b0, emissive: 0xfff3b0, emissiveIntensity: .8 });
+  for (const hx of [-0.6, 0.6]) {
+    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.1), headMat);
+    hl.position.set(hx, 0.7, -1.8); g.add(hl);
+  }
+  scene.add(g);
+  return { group: g, wheels };
+}
+const car = makeCar();
+
+// ---------------------------------------------------------------- obstacle + coin pools
+function makeCone() {
+  const g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.9),
+    new THREE.MeshStandardMaterial({ color: 0x222222 }));
+  base.position.y = 0.06; base.castShadow = true; g.add(base);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.0, 16),
+    new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: .6 }));
+  cone.position.y = 0.62; cone.castShadow = true; g.add(cone);
+  g.visible = false; scene.add(g); return g;
+}
+function makeBarrier() {
+  const g = new THREE.Group();
+  const b = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.0, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0xffd24a, roughness: .7 }));
+  b.position.y = 0.5; b.castShadow = true; g.add(b);
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.32, 0.25, 0.52),
+    new THREE.MeshStandardMaterial({ color: 0x111111 }));
+  stripe.position.y = 0.5; g.add(stripe);
+  g.visible = false; scene.add(g); return g;
+}
+function makeCoin() {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.12, 20),
+    new THREE.MeshStandardMaterial({ color: 0xffd24a, metalness: .9, roughness: .25, emissive: 0x6b4e00, emissiveIntensity: .3 }));
+  m.rotation.x = Math.PI / 2; m.position.y = 0.9; m.visible = false; scene.add(m); return m;
+}
+const obstacles = [], coins = [];
+for (let i = 0; i < 36; i++) obstacles.push({ mesh: i % 2 ? makeBarrier() : makeCone(), active: false });
+for (let i = 0; i < 90; i++) coins.push({ mesh: makeCoin(), active: false });
+function getFree(arr) { for (const o of arr) if (!o.active) return o; return null; }
+
+// ---------------------------------------------------------------- input
+const keys = {};
+function resumeAudio() { if (actx && actx.state === "suspended") actx.resume(); }
+addEventListener("keydown", e => {
+  keys[e.code] = true; resumeAudio();
+  if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
+});
+addEventListener("keyup", e => { keys[e.code] = false; });
+
+const joy = document.getElementById("joy");
+const joyKnob = document.getElementById("joyKnob");
+let joyVec = { x: 0, y: 0 }, joyId = null;
+joy.addEventListener("pointerdown", e => { joyId = e.pointerId; joy.setPointerCapture(e.pointerId); resumeAudio(); updateJoy(e); });
+joy.addEventListener("pointermove", e => { if (e.pointerId === joyId) updateJoy(e); });
+function endJoy(e) { if (e.pointerId === joyId) { joyId = null; joyVec = { x: 0, y: 0 }; joyKnob.style.transform = "translate(-50%, -50%)"; } }
+joy.addEventListener("pointerup", endJoy); joy.addEventListener("pointercancel", endJoy);
+function updateJoy(e) {
+  const r = joy.getBoundingClientRect(); const max = r.width / 2;
+  let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  const len = Math.hypot(dx, dy); if (len > max) { dx = (dx / len) * max; dy = (dy / len) * max; }
+  joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  joyVec.x = dx / max; joyVec.y = dy / max;
+}
+const btnGas = document.getElementById("btnGas");
+function bindHold(el, code) {
+  el.addEventListener("pointerdown", e => { e.preventDefault(); keys[code] = true; resumeAudio(); });
+  const off = () => (keys[code] = false);
+  el.addEventListener("pointerup", off); el.addEventListener("pointercancel", off); el.addEventListener("pointerleave", off);
+}
+bindHold(btnGas, "Space");
+
+// ---------------------------------------------------------------- audio (tiny)
+let actx = null;
+function sfx(kind) {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.connect(g); g.connect(actx.destination);
+    const t = actx.currentTime;
+    if (kind === "coin") { o.type = "triangle"; o.frequency.value = 900; g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12); o.start(t); o.stop(t + 0.13); }
+    else { o.type = "sawtooth"; o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(60, t + 0.2); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.22); o.start(t); o.stop(t + 0.23); }
+  } catch (e) {}
+}
+
+// ---------------------------------------------------------------- game state
+let running = false;
+const player = { x: 0, z: 0 };
+let dist = 0, coinsGot = 0, lives = MAX_LIVES, speed = BASE_SPEED, invuln = 0, wheelSpin = 0, lastSpawnZ = 0;
+let score = 0;
+
+const toastEl = document.getElementById("toast");
+let toastT = 0;
+function spawnToast(txt) { toastEl.textContent = txt; toastEl.classList.add("show"); toastT = 0.7; }
+
+function spawnWave(z) {
+  const lanes = [0, 1, 2, 3];
+  for (let i = lanes.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [lanes[i], lanes[j]] = [lanes[j], lanes[i]]; }
+  const obsCount = Math.min(3, 1 + (Math.random() < Math.min(0.7, 0.15 + dist / 3000) ? 1 : 0) + (dist > 1200 && Math.random() < 0.3 ? 1 : 0));
+  const obsLanes = lanes.slice(0, obsCount);
+  const freeLanes = lanes.slice(obsCount);
+  for (const ln of obsLanes) {
+    const o = getFree(obstacles); if (!o) break;
+    o.active = true; o.mesh.visible = true;
+    o.mesh.position.set(LANES[ln] + (Math.random() - 0.5) * 0.6, 0, z + (Math.random() - 0.5) * 2);
+  }
+  if (freeLanes.length) {
+    const ln = freeLanes[(Math.random() * freeLanes.length) | 0];
+    for (let k = 0; k < 4; k++) {
+      const c = getFree(coins); if (!c) break;
+      c.active = true; c.mesh.visible = true; c.mesh.position.set(LANES[ln], 0.9, z + 2 + k * 3);
+    }
+  }
+}
+function maybeSpawn() {
+  while (lastSpawnZ > player.z - SPAWN_AHEAD) { spawnWave(lastSpawnZ); lastSpawnZ -= WAVE_GAP; }
+}
+
+const flashEl = document.getElementById("flash");
+function crash(o) {
+  o.active = false; o.mesh.visible = false;
+  lives--; invuln = 1.3; sfx("crash");
+  flashEl.style.opacity = "0.55"; setTimeout(() => (flashEl.style.opacity = "0"), 140);
+  spawnToast("💥");
+  if (lives <= 0) gameOver();
+}
+
+const statsEl = document.getElementById("stats");
+function updateHUD() {
+  statsEl.innerHTML =
+    `<span>🏁 ${score}</span><span>🛣️ ${Math.floor(dist)}m</span>` +
+    `<span>🪙 ${coinsGot}</span><span>❤️ ${lives}</span><span>🏆 ${best}</span>`;
+}
+
+// ---------------------------------------------------------------- update / loop
+const clock = new THREE.Clock();
+function update(dt) {
+  elapsed += dt;
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) toastEl.classList.remove("show"); }
+  if (!running) { followCam(dt); return; }
+
+  const left = keys.KeyA || keys.ArrowLeft, right = keys.KeyD || keys.ArrowRight;
+  let steer = (right ? 1 : 0) - (left ? 1 : 0) + joyVec.x;
+  steer = Math.max(-1, Math.min(1, steer));
+  player.x += steer * STEER_RATE * dt;
+  player.x = Math.max(-(ROAD_HALF - 0.8), Math.min(ROAD_HALF - 0.8, player.x));
+  car.group.rotation.z += (-steer * 0.18 - car.group.rotation.z) * Math.min(1, dt * 8);
+  car.group.rotation.y += (steer * 0.12 - car.group.rotation.y) * Math.min(1, dt * 8);
+
+  const gas = keys.Space || keys.KeyW || keys.ArrowUp;
+  const base = BASE_SPEED + Math.min(16, dist * 0.012);
+  const target = gas ? base * 1.7 : base;
+  speed += (target - speed) * Math.min(1, dt * 3);
+
+  player.z -= speed * dt; dist += speed * dt;
+  wheelSpin += speed * dt * 2.2;
+  for (const w of car.wheels) w.rotation.x = wheelSpin;
+
+  grass.position.z = player.z; road.position.z = player.z;
+  roadTex.offset.y = (dist * 0.03) % 1;
+
+  for (const t of trees) if (t.position.z > player.z + 20) t.position.z -= TREE_SPAN;
+
+  maybeSpawn();
+
+  if (invuln > 0) invuln -= dt;
+  for (const o of obstacles) {
+    if (!o.active) continue;
+    if (o.mesh.position.z > player.z + RECYCLE_BEHIND) { o.active = false; o.mesh.visible = false; continue; }
+    if (invuln <= 0 && Math.abs(o.mesh.position.z - player.z) < 1.8 && Math.abs(o.mesh.position.x - player.x) < 1.1) crash(o);
+  }
+  for (const c of coins) {
+    if (!c.active) continue;
+    if (c.mesh.position.z > player.z + RECYCLE_BEHIND) { c.active = false; c.mesh.visible = false; continue; }
+    c.mesh.rotation.y += dt * 4;
+    if (Math.abs(c.mesh.position.z - player.z) < 1.6 && Math.abs(c.mesh.position.x - player.x) < 1.3) {
+      c.active = false; c.mesh.visible = false; coinsGot++; sfx("coin"); spawnToast("+10 🪙");
+    }
+  }
+
+  car.group.visible = invuln > 0 ? (Math.floor(elapsed * 12) % 2 === 0) : true;
+  score = Math.floor(dist) + coinsGot * COIN_VAL;
+  followCam(dt);
+  updateHUD();
+}
+function followCam(dt) {
+  camera.position.x += (player.x * 0.6 - camera.position.x) * Math.min(1, dt * 5);
+  camera.position.y = 4.3;
+  camera.position.z = player.z + 9;
+  camera.lookAt(player.x * 0.4, 1.2, player.z - 10);
+}
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.033, clock.getDelta());
+  update(dt);
+  renderer.render(scene, camera);
+}
+
+// ---------------------------------------------------------------- game over / replay
+const overlay = document.getElementById("overlay");
+const winTitle = document.getElementById("winTitle");
+const winEmoji = document.getElementById("winEmoji");
+const winSub = document.getElementById("winSub");
+const confettiBox = document.getElementById("confetti");
+const replay = document.getElementById("replay");
+function burstConfetti() {
+  const colors = ["#ffd24a", "#ff3cac", "#2bdeee", "#4dff88", "#ffffff", "#ff8a3c"];
+  for (let i = 0; i < 80; i++) {
+    const d = document.createElement("div"); d.className = "conf";
+    const s = 7 + Math.random() * 10;
+    d.style.left = (Math.random() * 100) + "vw";
+    d.style.width = s + "px"; d.style.height = (s * 1.4) + "px";
+    d.style.background = colors[(Math.random() * colors.length) | 0];
+    d.style.animationDuration = (1.6 + Math.random() * 1.8) + "s";
+    d.style.animationDelay = (Math.random() * 0.5) + "s";
+    confettiBox.appendChild(d); setTimeout(() => d.remove(), 4200);
+  }
+}
+function gameOver() {
+  running = false;
+  if (score > best) { best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {} }
+  winEmoji.textContent = "💥"; winTitle.textContent = "Game Over";
+  winSub.textContent = `Score ${score}  ·  Best ${best}`;
+  overlay.classList.add("show");
+  flashEl.style.background = "#ff2b2b"; flashEl.style.opacity = "0.6";
+  setTimeout(() => (flashEl.style.opacity = "0"), 220);
+  burstConfetti();
+}
+function startGame() {
+  running = true; dist = 0; coinsGot = 0; lives = MAX_LIVES; speed = BASE_SPEED; invuln = 0; score = 0;
+  player.x = 0; player.z = 0;
+  for (const o of obstacles) { o.active = false; o.mesh.visible = false; }
+  for (const c of coins) { c.active = false; c.mesh.visible = false; }
+  lastSpawnZ = player.z - 30;
+  overlay.classList.remove("show"); confettiBox.innerHTML = "";
+  car.group.visible = true; car.group.rotation.set(0, 0, 0);
+  camera.position.set(0, 4.3, 9);
+  updateHUD();
+  spawnToast("Cruise! 🚗");
+}
+replay.addEventListener("click", startGame);
+
+const isTouch = (window.matchMedia && matchMedia("(pointer: coarse)").matches) || "ontouchstart" in window || navigator.maxTouchPoints > 0;
+document.body.classList.toggle("touch", isTouch);
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
+});
+
+startGame();
+animate();
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/cruise/cruise-sw.js', { scope: '/cruise' }).catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

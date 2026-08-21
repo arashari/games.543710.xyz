@@ -1,0 +1,16 @@
+{
+  "name": "Car Cruise 3D",
+  "short_name": "CarCruise",
+  "description": "Endless 3D driving — steer, boost with gas, grab coins and dodge cones. Play money only — no real prizes.",
+  "id": "/cruise",
+  "start_url": "/cruise",
+  "scope": "/cruise",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#7ec8ff",
+  "theme_color": "#7ec8ff",
+  "icons": [
+    { "src": "/cruise/cruise-icon.svg", "sizes": "192x192 512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
