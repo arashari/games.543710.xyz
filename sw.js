@@ -1,4 +1,4 @@
-const CACHE = 'web-addictive-v2';
+const CACHE = 'web-addictive-v3';
 const CORE = ['./', './collect-letters/', './big-numbers/', './store-quest/', './slots/'];
 
 self.addEventListener('install', (e) => {
