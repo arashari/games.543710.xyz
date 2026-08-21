@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Letter Quest 3D</title>
+<meta name="theme-color" content="#0a0e2a" />
+<link rel="manifest" href="/collect-letters/manifest.json" />
+<link rel="apple-touch-icon" href="/collect-letters/collect-letters-icon.svg" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="LetterQuest" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Letter Quest" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #0a0e2a; font-family: "Trebuchet MS", system-ui, sans-serif; color: #fff; overscroll-behavior: none; touch-action: none; }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  #hud {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10;
+    display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none;
+    background: rgba(12, 10, 24, 0.55);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    padding: 10px 22px 12px; border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.18);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+    min-width: 150px;
+  }
+  #word { font-size: clamp(28px, 6vw, 56px); font-weight: 900; letter-spacing: .18em; text-shadow: 0 3px 0 #0008; }
+  #word .got { color: #ffd24a; text-shadow: 0 0 18px #ffd24a88; }
+  #word .miss { color: #d7dbe6; }
+  #word .next { color: #fff; border-bottom: 3px solid #2bdeee; text-shadow: 0 0 16px #2bdeee, 0 0 6px #fff; animation: pulseNext .8s ease-in-out infinite; }
+  @keyframes pulseNext { 0%,100%{ opacity: 1; } 50%{ opacity: .45; } }
+  #flash { position: fixed; inset: 0; background: #ff2b2b; opacity: 0; pointer-events: none; z-index: 15; transition: opacity .12s; }
+  #sub { font-size: 13px; letter-spacing: .25em; opacity: .7; text-transform: uppercase; }
+  #lives { font-size: 24px; letter-spacing: 4px; margin-top: 2px; min-height: 28px; }
+
+  /* small screens: compact single-row top bar, and fonts sized off
+     min(vw, vh) so they're constrained by BOTH dimensions — correct in
+     portrait (width-limited) and landscape (height-limited). Desktop untouched. */
+  @media (max-width: 480px), (max-height: 480px) {
+    #hud {
+      top: 0; left: 0; right: 0; transform: none; width: 100%;
+      flex-direction: row; align-items: center; justify-content: center;
+      gap: 10px; padding: 1vh 10px; border-radius: 0;
+      border-left: none; border-right: none; border-top: none; min-width: 0;
+    }
+    #word { font-size: clamp(13px, min(5.5vw, 6vh), 32px); letter-spacing: .07em; white-space: nowrap; }
+    #sub { display: none; }
+    #lives { margin-top: 0; font-size: clamp(12px, min(4vw, 4vh), 20px); letter-spacing: 3px; min-height: 0; }
+    #ctrl { font-size: clamp(9px, min(2.6vw, 2.6vh), 13px); }
+    /* win / lose overlay scales with both dimensions too */
+    #overlay { gap: 2.6vh; padding: 5vh 16px; }
+    #winEmoji { font-size: clamp(40px, min(16vw, 20vh), 110px); }
+    #overlay h1 { font-size: clamp(22px, min(7vw, 8vh), 50px); }
+    #overlay p { font-size: clamp(11px, min(3vw, 3vh), 15px); }
+    #overlay button { font-size: clamp(13px, min(3.4vw, 3.4vh), 17px); padding: 1vh 5vw; }
+  }
+
+  #ctrl {
+    position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center;
+    font-size: 12px; opacity: .8; pointer-events: none;
+    background: rgba(12,10,24,0.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    padding: 6px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
+    max-width: 92vw;
+  }
+
+  /* mobile-first touch controls */
+  #joy {
+    position: fixed; left: 18px; bottom: 18px; width: 130px; height: 130px; z-index: 12;
+    border-radius: 50%; background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.18);
+    touch-action: none; display: none; align-items: center; justify-content: center;
+  }
+  #joyKnob {
+    width: 58px; height: 58px; border-radius: 50%; background: rgba(255,210,74,.85);
+    box-shadow: 0 4px 14px #0007; position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%); pointer-events: none;
+  }
+  #joyLabel { position: absolute; bottom: -20px; font-size: 10px; letter-spacing: .25em; opacity: .5; }
+  #btns { position: fixed; right: 18px; bottom: 18px; z-index: 12; display: none; gap: 14px; align-items: flex-end; }
+  body.touch #joy, body.touch #btns { display: flex; }
+  .act {
+    border-radius: 50%; border: 2px solid rgba(255,255,255,.25); color: #fff;
+    font-weight: 800; font-size: 14px; letter-spacing: .05em; touch-action: none; user-select: none;
+    display: flex; align-items: center; justify-content: center; -webkit-user-select: none;
+  }
+  #btnJump { width: 84px; height: 84px; background: rgba(77,255,136,.25); }
+  #btnSprint { width: 66px; height: 66px; background: rgba(43,222,238,.22); align-self: flex-end; }
+  #overlay button { touch-action: manipulation; }
+  #winEmoji {
+    font-size: clamp(90px, 22vw, 180px); line-height: 1;
+    filter: drop-shadow(0 10px 24px rgba(0,0,0,.5));
+    animation: emojiPop .7s cubic-bezier(.2,1.6,.4,1) both;
+  }
+  @keyframes emojiPop {
+    0%   { transform: scale(0) rotate(-35deg); }
+    60%  { transform: scale(1.25) rotate(8deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+  #confetti { position: fixed; inset: 0; z-index: 25; pointer-events: none; overflow: hidden; }
+  .conf { position: absolute; top: -24px; border-radius: 2px; opacity: .95; will-change: transform; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(112vh) rotate(720deg); } }
+
+  #overlay {
+    position: fixed; inset: 0; z-index: 20; display: none;
+    align-items: center; justify-content: center; flex-direction: column; gap: 18px;
+    background: radial-gradient(circle at 50% 40%, #2d0b4544, #07020fdd);
+    backdrop-filter: blur(3px); text-align: center;
+  }
+  #overlay.show { display: flex; }
+  #overlay h1 { font-size: clamp(34px, 8vw, 80px); font-weight: 900;
+    background: linear-gradient(180deg,#fff,#ffd24a 60%,#ff3cac);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 24px #ffd24a66); }
+  #overlay p { font-size: 16px; opacity: .8; }
+  #overlay button {
+    margin-top: 6px; font-size: 18px; font-weight: 800; letter-spacing: .08em;
+    padding: 12px 28px; border: none; border-radius: 14px; cursor: pointer; color: #1a0033;
+    background: linear-gradient(180deg,#fff,#ffd24a 40%,#ff3cac);
+    box-shadow: 0 10px 30px #0008;
+  }
+  #overlay button:active { transform: scale(.95); }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="hud">
+    <div id="word"></div>
+    <div id="lives"></div>
+    <div id="sub">collect the letters — in order!</div>
+  </div>
+  
+
+  <div id="joy"><div id="joyKnob"></div><div id="joyLabel">MOVE</div></div>
+  <div id="btns">
+    <div id="btnSprint" class="act">SPRINT</div>
+    <div id="btnJump" class="act">JUMP</div>
+  </div>
+
+  <div id="flash"></div>
+
+  <div id="confetti"></div>
+
+  <div id="overlay">
+    <div id="winEmoji">🐼</div>
+    <h1 id="winTitle">PANDA!</h1>
+    <p id="winSub">you collected every letter</p>
+    <button id="replay">Play again</button>
+  </div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from "three";
+
+// ---------------------------------------------------------------- config
+const ANIMALS = ["CAT","DOG","LION","TIGER","PANDA","ZEBRA","HORSE","SHEEP",
+                 "WHALE","KOALA","RABBIT","MONKEY","PENGUIN","DOLPHIN","GIRAFFE","ELEPHANT","OTTER","FOX"];
+const ANIMAL_EMOJI = {
+  CAT:"🐱", DOG:"🐶", LION:"🦁", TIGER:"🐯", PANDA:"🐼", ZEBRA:"🦓",
+  HORSE:"🐴", SHEEP:"🐑", WHALE:"🐳", KOALA:"🐨", RABBIT:"🐰", MONKEY:"🐵",
+  PENGUIN:"🐧", DOLPHIN:"🐬", GIRAFFE:"🦒", ELEPHANT:"🐘", OTTER:"🦦", FOX:"🦊"
+};
+const GRAVITY = -32;
+const JUMP_V = 13;
+const RUN_SPEED = 11;
+const SPRINT_SPEED = 18;
+
+// ---------------------------------------------------------------- renderer / scene
+const app = document.getElementById("app");
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+function makeSkyTexture() {
+  const c = document.createElement("canvas");
+  c.width = 16; c.height = 256;
+  const g = c.getContext("2d");
+  const grad = g.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0.0, "#5db8ff");
+  grad.addColorStop(0.55, "#a9e7ff");
+  grad.addColorStop(1.0, "#eaffff");
+  g.fillStyle = grad; g.fillRect(0, 0, 16, 256);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+scene.background = makeSkyTexture();
+scene.fog = new THREE.Fog(0xcdeeff, 48, 110);
+
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 200);
+
+// lights
+scene.add(new THREE.HemisphereLight(0xdff1ff, 0x9be7a0, 1.25));
+scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+const sun = new THREE.DirectionalLight(0xfff3d6, 1.5);
+sun.position.set(20, 40, 15);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
+sun.shadow.camera.top = 60; sun.shadow.camera.bottom = -60;
+sun.shadow.camera.far = 120;
+scene.add(sun);
+
+// ground
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(60, 64),
+  new THREE.MeshStandardMaterial({ color: 0x76d97a, roughness: 1 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(120, 60, 0xbfeed0, 0x86d99a);
+grid.position.y = 0.01;
+scene.add(grid);
+
+// floating platforms (also letter perches) — procedurally built each stage
+const platforms = [];
+const platformGroup = new THREE.Group();
+scene.add(platformGroup);
+const obstacleGroup = new THREE.Group();
+scene.add(obstacleGroup);
+const obstacles = [];
+let elapsed = 0;
+const PLATFORM_COLORS = [0xff7eb6, 0x54e6a0, 0xffa14a, 0x5bc8ff, 0xc08bff, 0xffe14a, 0xff5d73];
+
+function hexStr(hex) { return "#" + hex.toString(16).padStart(6, "0"); }
+function lighten(hex, amt) {
+  let r = (hex >> 16) & 255, g = (hex >> 8) & 255, b = hex & 255;
+  r = Math.round(r + (255 - r) * amt); g = Math.round(g + (255 - g) * amt); b = Math.round(b + (255 - b) * amt);
+  return (r << 16) | (g << 8) | b;
+}
+function makePlatformTexture(hex) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d");
+  g.fillStyle = hexStr(hex); g.fillRect(0, 0, 128, 128);
+  g.fillStyle = "rgba(255,255,255,0.85)";
+  const r = 13, step = 38;
+  for (let y = 0; y < 128 + step; y += step)
+    for (let x = 0; x < 128 + step; x += step) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+function addPlatform(x, z, w, d, h, color, move) {
+  const g = new THREE.Group();
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshStandardMaterial({
+      map: makePlatformTexture(color), roughness: .5, metalness: 0,
+      emissive: new THREE.Color(color), emissiveIntensity: .12,
+    })
+  );
+  m.position.y = h / 2;
+  m.castShadow = true; m.receiveShadow = true;
+  g.add(m);
+  // frosting cap on top for a candy look
+  const capCol = lighten(color, 0.5);
+  const cap = new THREE.Mesh(
+    new THREE.BoxGeometry(w * 0.94, 0.22, d * 0.94),
+    new THREE.MeshStandardMaterial({
+      map: makePlatformTexture(capCol), roughness: .4, metalness: 0,
+      emissive: new THREE.Color(capCol), emissiveIntensity: .15,
+    })
+  );
+  cap.position.y = h + 0.11;
+  cap.castShadow = true; cap.receiveShadow = true;
+  g.add(cap);
+  g.position.set(x, 0, z);
+  platformGroup.add(g);
+  platforms.push({ group: g, minX: x - w/2, maxX: x + w/2, minZ: z - d/2, maxZ: z + d/2, topY: h, baseX: x, baseZ: z, move: move || null, letters: [] });
+}
+function buildPlatforms() {
+  platformGroup.clear();
+  platforms.length = 0;
+  const count = 4 + (Math.random() * 4 | 0); // 4..7
+  let placed = 0, attempts = 0;
+  while (placed < count && attempts < 300) {
+    attempts++;
+    const ang = Math.random() * Math.PI * 2;
+    const rad = 9 + Math.random() * 16;        // 9..25 from center
+    const x = Math.cos(ang) * rad, z = Math.sin(ang) * rad;
+    const w = 4 + Math.random() * 4, d = 4 + Math.random() * 4;   // 4..8
+    const h = 1.6 + Math.random() * 0.9;        // 1.6..2.5 (jump-reachable)
+    let ok = true;
+    for (const p of platforms) {
+      const cx = (p.minX + p.maxX) / 2, cz = (p.minZ + p.maxZ) / 2;
+      const need = (w / 2 + (p.maxX - p.minX) / 2) + 4;
+      if (Math.hypot(x - cx, z - cz) < need) { ok = false; break; }
+    }
+    if (!ok) continue;
+    const color = PLATFORM_COLORS[(Math.random() * PLATFORM_COLORS.length) | 0];
+    // Moving platforms are disabled for now; to re-enable, set `move` and updatePlatforms() will slide it:
+    //   move = { axis: "x"|"z", amp: 3 + Math.random()*3, speed: 0.4 + Math.random()*0.5, phase: Math.random()*6 };
+    addPlatform(x, z, w, d, h, color, null);
+    placed++;
+  }
+}
+function updatePlatforms() {
+  for (const p of platforms) {
+    if (!p.move) continue;
+    const off = Math.sin(elapsed * p.move.speed + p.move.phase) * p.move.amp;
+    const nx = p.baseX + (p.move.axis === "x" ? off : 0);
+    const nz = p.baseZ + (p.move.axis === "z" ? off : 0);
+    const dx = nx - (p.minX + p.maxX) / 2;
+    const dz = nz - (p.minZ + p.maxZ) / 2;
+    p.group.position.x = nx;
+    p.group.position.z = nz;
+    const hw = (p.maxX - p.minX) / 2, hd = (p.maxZ - p.minZ) / 2;
+    p.minX = nx - hw; p.maxX = nx + hw; p.minZ = nz - hd; p.maxZ = nz + hd;
+    for (const l of p.letters) { l.base.x += dx; l.base.z += dz; }
+  }
+}
+function buildObstacles() {
+  for (const o of obstacles) obstacleGroup.remove(o.group);
+  obstacles.length = 0;
+  const count = 2 + (Math.random() * 3 | 0); // 2..4
+  for (let i = 0; i < count; i++) {
+    let x, z, ok = false, tries = 0;
+    while (!ok && tries < 30) {
+      tries++;
+      const ang = Math.random() * Math.PI * 2;
+      const rad = 11 + Math.random() * 15;
+      x = Math.cos(ang) * rad; z = Math.sin(ang) * rad;
+      ok = true;
+      for (const l of letters) {
+        if (Math.hypot(l.base.x - x, l.base.z - z) < 3.5) { ok = false; break; }
+      }
+    }
+    const g = new THREE.Group();
+    const barMat = new THREE.MeshStandardMaterial({ color: 0xff3b3b, emissive: 0xff3b3b, emissiveIntensity: .35, roughness: .5 });
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.5, 0.5), barMat);
+    bar.castShadow = true; bar.position.y = 0.9; g.add(bar);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 1.4, 12),
+      new THREE.MeshStandardMaterial({ color: 0x333344, roughness: .8 }));
+    hub.position.y = 0.4; g.add(hub);
+    g.position.set(x, 0, z);
+    obstacleGroup.add(g);
+    obstacles.push({ group: g, x, z, r: 1.5, spin: 1.4 + Math.random() * 1.6, phase: Math.random() * 6 });
+  }
+}
+
+// ---------------------------------------------------------------- playful decor (procedural, rebuilt each stage)
+const decor = [];
+const decorGroup = new THREE.Group();
+scene.add(decorGroup);
+const CANDY = [0xff7eb6, 0x54e6a0, 0xffa14a, 0x5bc8ff, 0xc08bff, 0xffe14a, 0xff5d73];
+
+function makeCloud() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, emissive: 0xdfefff, emissiveIntensity: .15 });
+  for (let i = 0; i < 4; i++) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(1.1 + Math.random() * 0.6, 12, 12), mat);
+    s.position.set((i - 1.5) * 1.1, Math.random() * 0.5, Math.random() * 0.6);
+    g.add(s);
+  }
+  return g;
+}
+function makeTree() {
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, 1.4, 8),
+    new THREE.MeshStandardMaterial({ color: 0xb5793f, roughness: 1 }));
+  trunk.position.y = 0.7; trunk.castShadow = true; g.add(trunk);
+  const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1, 0),
+    new THREE.MeshStandardMaterial({ color: 0x4fd06a, roughness: .9, flatShading: true }));
+  leaf.position.y = 1.9; leaf.castShadow = true; g.add(leaf);
+  return g;
+}
+function makeBalloon() {
+  const g = new THREE.Group();
+  const col = CANDY[(Math.random() * CANDY.length) | 0];
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16),
+    new THREE.MeshStandardMaterial({ color: col, roughness: .4, emissive: col, emissiveIntensity: .25 }));
+  b.castShadow = true; g.add(b);
+  const str = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.4, 4),
+    new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  str.position.y = -1.0; g.add(str);
+  return g;
+}
+function buildDecor() {
+  decorGroup.clear();
+  decor.length = 0;
+  for (let i = 0; i < 8; i++) {
+    const c = makeCloud();
+    const a = Math.random() * Math.PI * 2, r = 22 + Math.random() * 30;
+    c.position.set(Math.cos(a) * r, 12 + Math.random() * 10, Math.sin(a) * r);
+    c.userData.drift = 0.3 + Math.random() * 0.4;
+    decorGroup.add(c); decor.push(c);
+  }
+  for (let i = 0; i < 14; i++) {
+    const t = makeTree();
+    const a = (i / 14) * Math.PI * 2;
+    const r = 30 + Math.random() * 22;
+    t.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+    decorGroup.add(t);
+  }
+  for (let i = 0; i < 12; i++) {
+    const b = makeBalloon();
+    const a = Math.random() * Math.PI * 2, r = 10 + Math.random() * 26;
+    b.position.set(Math.cos(a) * r, 4 + Math.random() * 6, Math.sin(a) * r);
+    b.userData.bob = Math.random() * Math.PI * 2;
+    decorGroup.add(b); decor.push(b);
+  }
+  for (let i = 0; i < 60; i++) {
+    const f = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.1, 6),
+      new THREE.MeshStandardMaterial({ color: CANDY[(Math.random() * CANDY.length) | 0], roughness: .8 }));
+    const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 54;
+    f.position.set(Math.cos(a) * r, 0.06, Math.sin(a) * r);
+    decorGroup.add(f);
+  }
+}
+
+// ---------------------------------------------------------------- player
+const player = {
+  group: new THREE.Group(),
+  pos: new THREE.Vector3(0, 0.7, 0),
+  vel: new THREE.Vector3(),
+  grounded: true,
+  radius: 0.7,
+  yaw: 0,
+};
+(function buildPlayer() {
+  const g = player.group;
+  const body = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.5, 0.9, 6, 12),
+    new THREE.MeshStandardMaterial({ color: 0xffe0b2, roughness: .6 })
+  );
+  body.castShadow = true; g.add(body);
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 20, 20),
+    new THREE.MeshStandardMaterial({ color: 0xffe0b2, roughness: .6 })
+  );
+  head.position.y = 1.1; head.castShadow = true; g.add(head);
+  // horse-girl ears (nods to uma musume :))
+  const earMat = new THREE.MeshStandardMaterial({ color: 0xffe0b2, roughness: .6 });
+  for (const s of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 12), earMat);
+    ear.position.set(0.25 * s, 1.55, 0); ear.rotation.z = -0.3 * s; g.add(ear);
+  }
+  // eyes
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), eyeMat);
+    eye.position.set(0.2 * s, 1.15, 0.5); g.add(eye);
+  }
+  scene.add(g);
+})();
+
+// ---------------------------------------------------------------- letters
+let target = "";
+let letters = []; // {mesh, char, base:Vector3, index, collected:bool}
+let nextIndex = 0;
+let resetCooldown = 0;
+let bumpCooldown = 0;
+let shakeAmt = 0;
+let tumble = 0;
+let mistakes = 0;
+const MAX_MISTAKES = 3;
+
+function makeLetterTexture(ch) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const x = c.getContext("2d");
+  // white halo so the tile pops against any background
+  x.fillStyle = "#ffffff";
+  roundRect(x, 3, 3, 122, 122, 24); x.fill();
+  // gold panel
+  x.fillStyle = "#ffd24a";
+  roundRect(x, 12, 12, 104, 104, 18); x.fill();
+  // thick dark border for separation + contrast
+  x.lineWidth = 10; x.strokeStyle = "#15131a";
+  roundRect(x, 12, 12, 104, 104, 18); x.stroke();
+  // bold near-black letter (max contrast on gold)
+  x.fillStyle = "#15131a";
+  x.font = "bold 82px Trebuchet MS, sans-serif";
+  x.textAlign = "center"; x.textBaseline = "middle";
+  x.fillText(ch, 64, 70);
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 4;
+  return t;
+}
+function roundRect(x, a, b, w, h, r) {
+  x.beginPath();
+  x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r);
+  x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r);
+  x.arcTo(a, b, a + w, b, r); x.closePath();
+}
+
+function letterPosOK(x, y, z) {
+  for (const p of platforms) {
+    if (x > p.minX - 1 && x < p.maxX + 1 && z > p.minZ - 1 && z < p.maxZ + 1) return false;
+  }
+  return true;
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function spawnLetters(word) {
+  letters.forEach(l => scene.remove(l.mesh));
+  letters = [];
+  target = word;
+  const n = word.length;
+
+  // ~40% of letters perch on random platforms (capped by platform count)
+  const order = shuffle([...Array(n).keys()]);
+  const pc = Math.min(Math.floor(n * 0.4), platforms.length);
+  const platSet = new Set(order.slice(0, pc));
+  let pCursor = 0;
+
+  for (let i = 0; i < n; i++) {
+    const ch = word[i];
+    const tex = makeLetterTexture(ch);
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex, transparent: true,
+      emissive: 0xffd24a, emissiveMap: tex, emissiveIntensity: .35, side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), mat);
+    mesh.castShadow = true;
+
+    let x, y, z, onPlat = null;
+    if (platSet.has(i) && platforms.length) {
+      const p = platforms[pCursor % platforms.length]; pCursor++;
+      const ox = (Math.random() - 0.5) * Math.max(0, (p.maxX - p.minX) - 1.6);
+      const oz = (Math.random() - 0.5) * Math.max(0, (p.maxZ - p.minZ) - 1.6);
+      x = (p.minX + p.maxX) / 2 + ox;
+      z = (p.minZ + p.maxZ) / 2 + oz;
+      y = p.topY + 1.2;
+      onPlat = p;
+    } else {
+      let tries = 0;
+      do {
+        const ang = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+        const rad = 8 + Math.random() * 12;
+        x = Math.cos(ang) * rad;
+        z = Math.sin(ang) * rad;
+        y = 1.6 + Math.random() * 1.6;
+        tries++;
+      } while (!letterPosOK(x, y, z) && tries < 40);
+    }
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+    const letter = { mesh, char: ch, base: new THREE.Vector3(x, y, z), index: i, collected: false, t: Math.random() * 6, phase: Math.random() * Math.PI * 2, driftR: 0.8 + Math.random() * 1.1 };
+    letters.push(letter);
+    if (onPlat) onPlat.letters.push(letter);
+  }
+  nextIndex = 0;
+  updateHUD();
+  refreshLetters();
+}
+
+// ---------------------------------------------------------------- HUD
+const wordEl = document.getElementById("word");
+const livesEl = document.getElementById("lives");
+function updateHUD() {
+  if (!letters.length) { wordEl.innerHTML = ""; return; }
+  let html = "";
+  for (let i = 0; i < letters.length; i++) {
+    const l = letters[i];
+    if (l.collected) html += `<span class="got">${l.char}</span>`;
+    else if (i === nextIndex) html += `<span class="next">${l.char}</span>`;
+    else html += `<span class="miss">${l.char}</span>`;
+  }
+  wordEl.innerHTML = html;
+}
+function updateLives() {
+  const left = Math.max(0, MAX_MISTAKES - mistakes);
+  livesEl.textContent = left > 0 ? "❤️".repeat(left) : "💔";
+}
+
+// highlight the next expected letter in the 3D scene
+function refreshLetters() {
+  for (const l of letters) {
+    if (l.collected) { l.mesh.visible = false; continue; }
+    l.mesh.visible = true;
+    l.mesh.scale.setScalar(1);
+    l.mesh.material.emissiveIntensity = (l.char === target[nextIndex]) ? 0.85 : 0.35;
+  }
+}
+
+// wrong-order failure buzz
+function buzz() {
+  if (muted) return;
+  const c = ac(), t = c.currentTime;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(200, t);
+  o.frequency.exponentialRampToValueAtTime(70, t + 0.3);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.3, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+  o.connect(g).connect(c.destination);
+  o.start(t); o.stop(t + 0.37);
+}
+
+// dedicated game-over "sad trumpet" — detuned saws through a lowpass with vibrato + descending fall
+function loseSfx() {
+  if (muted) return;
+  const c = ac(), t0 = c.currentTime;
+  // brass-ish: two detuned sawtooths -> lowpass (bright but not shrill)
+  const o1 = c.createOscillator(), o2 = c.createOscillator();
+  const g = c.createGain();
+  const filt = c.createBiquadFilter();
+  filt.type = "lowpass"; filt.frequency.value = 2200; filt.Q.value = 1.2;
+  o1.type = "sawtooth"; o2.type = "sawtooth"; o2.detune.value = 8;
+  // vibrato = the trumpet "wah"
+  const lfo = c.createOscillator(), lfoG = c.createGain();
+  lfo.frequency.value = 6; lfoG.gain.value = 8;
+  lfo.connect(lfoG); lfoG.connect(o1.detune); lfoG.connect(o2.detune);
+  o1.connect(filt); o2.connect(filt); filt.connect(g); g.connect(c.destination);
+  // sad descending motif: G4 -> F4 -> E4, last note scoops down = "waaah"
+  const notes = [392.00, 349.23, 329.63];
+  let tt = t0;
+  notes.forEach((f, i) => {
+    const dur = i === notes.length - 1 ? 0.5 : 0.2;
+    o1.frequency.setValueAtTime(f, tt);
+    o2.frequency.setValueAtTime(f, tt);
+    if (i === notes.length - 1) o1.frequency.exponentialRampToValueAtTime(f * 0.94, tt + dur);
+    g.gain.setValueAtTime(0.0001, tt);
+    g.gain.exponentialRampToValueAtTime(0.22, tt + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, tt + dur);
+    tt += dur;
+  });
+  lfo.start(t0); o1.start(t0); o2.start(t0);
+  lfo.stop(tt + 0.05); o1.stop(tt + 0.05); o2.stop(tt + 0.05);
+}
+
+// ---------------------------------------------------------------- audio (synth)
+let actx = null, muted = false;
+function ac() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === "suspended") actx.resume();
+  return actx;
+}
+function ding(step) {
+  if (muted) return;
+  const c = ac(), t = c.currentTime;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = "sine";
+  const f = 660 * Math.pow(2, Math.min(step, 12) / 12);
+  o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.3, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+  o.connect(g).connect(c.destination);
+  o.start(t); o.stop(t + 0.27);
+}
+function fanfare() {
+  if (muted) return;
+  const c = ac(), t0 = c.currentTime;
+  [0, 4, 7, 12, 16].forEach((s, i) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = "triangle";
+    const t = t0 + i * 0.08;
+    o.frequency.setValueAtTime(523.25 * Math.pow(2, s / 12), t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    o.connect(g).connect(c.destination);
+    o.start(t); o.stop(t + 0.42);
+  });
+}
+
+// ---------------------------------------------------------------- input
+const keys = {};
+addEventListener("keydown", e => {
+  keys[e.code] = true;
+  if (["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault();
+});
+addEventListener("keyup", e => { keys[e.code] = false; });
+
+// camera drag
+let camYaw = Math.PI, camPitch = 0.45, dragging = false, lx = 0, ly = 0;
+renderer.domElement.addEventListener("pointerdown", e => { dragging = true; lx = e.clientX; ly = e.clientY; });
+addEventListener("pointerup", () => dragging = false);
+addEventListener("pointermove", e => {
+  if (!dragging) return;
+  camYaw -= (e.clientX - lx) * 0.005;
+  camPitch -= (e.clientY - ly) * 0.005;
+  camPitch = Math.max(-0.1, Math.min(1.2, camPitch));
+  lx = e.clientX; ly = e.clientY;
+});
+
+// virtual joystick (left thumb)
+const joy = document.getElementById("joy");
+const joyKnob = document.getElementById("joyKnob");
+let joyVec = { x: 0, y: 0 };
+let joyId = null;
+joy.addEventListener("pointerdown", e => { joyId = e.pointerId; joy.setPointerCapture(e.pointerId); updateJoy(e); });
+joy.addEventListener("pointermove", e => { if (e.pointerId === joyId) updateJoy(e); });
+function endJoy(e) { if (e.pointerId === joyId) { joyId = null; joyVec = { x: 0, y: 0 }; joyKnob.style.transform = "translate(-50%, -50%)"; } }
+joy.addEventListener("pointerup", endJoy);
+joy.addEventListener("pointercancel", endJoy);
+function updateJoy(e) {
+  const r = joy.getBoundingClientRect();
+  const max = r.width / 2;
+  let dx = e.clientX - (r.left + r.width / 2);
+  let dy = e.clientY - (r.top + r.height / 2);
+  const len = Math.hypot(dx, dy);
+  if (len > max) { dx = (dx / len) * max; dy = (dy / len) * max; }
+  joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  joyVec.x = dx / max; joyVec.y = dy / max;
+}
+
+// action buttons (right thumb)
+const btnJump = document.getElementById("btnJump");
+const btnSprint = document.getElementById("btnSprint");
+function bindHold(el, code) {
+  el.addEventListener("pointerdown", e => { e.preventDefault(); keys[code] = true; });
+  const off = () => (keys[code] = false);
+  el.addEventListener("pointerup", off);
+  el.addEventListener("pointercancel", off);
+  el.addEventListener("pointerleave", off);
+}
+bindHold(btnJump, "Space");
+bindHold(btnSprint, "ShiftLeft");
+
+// ---------------------------------------------------------------- game loop
+const clock = new THREE.Clock();
+const up = new THREE.Vector3(0, 1, 0);
+
+function update(dt) {
+  elapsed += dt;
+  updatePlatforms();
+  // camera-relative basis
+  const forward = new THREE.Vector3(
+    player.pos.x - camera.position.x, 0, player.pos.z - camera.position.z
+  );
+  if (forward.lengthSq() < 1e-4) forward.set(0, 0, -1);
+  forward.normalize();
+  const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+
+  const move = new THREE.Vector3();
+  if (keys["KeyW"] || keys["ArrowUp"]) move.add(forward);
+  if (keys["KeyS"] || keys["ArrowDown"]) move.sub(forward);
+  if (keys["KeyD"] || keys["ArrowRight"]) move.add(right);
+  if (keys["KeyA"] || keys["ArrowLeft"]) move.sub(right);
+  if (Math.hypot(joyVec.x, joyVec.y) > 0.12) {
+    move.addScaledVector(forward, -joyVec.y);  // stick up = forward
+    move.addScaledVector(right, joyVec.x);     // stick right = right
+  }
+
+  const sprint = keys["ShiftLeft"] || keys["ShiftRight"];
+  const speed = sprint ? SPRINT_SPEED : RUN_SPEED;
+  if (move.lengthSq() > 0) {
+    move.normalize().multiplyScalar(speed);
+    player.vel.x = move.x; player.vel.z = move.z;
+    player.yaw = Math.atan2(move.x, move.z);
+  } else {
+    player.vel.x *= 0.8; player.vel.z *= 0.8;
+  }
+
+  // jump
+  if ((keys["Space"]) && player.grounded) {
+    player.vel.y = JUMP_V; player.grounded = false;
+  }
+
+  // gravity + integrate
+  player.vel.y += GRAVITY * dt;
+  player.pos.addScaledVector(player.vel, dt);
+
+  // collisions
+  player.grounded = false;
+  if (player.pos.y <= player.radius) { player.pos.y = player.radius; player.vel.y = 0; player.grounded = true; }
+  for (const p of platforms) {
+    if (player.pos.x > p.minX && player.pos.x < p.maxX &&
+        player.pos.z > p.minZ && player.pos.z < p.maxZ) {
+      const top = p.topY + player.radius;
+      if (player.vel.y <= 0 && player.pos.y <= top && player.pos.y > top - 1.2) {
+        player.pos.y = top; player.vel.y = 0; player.grounded = true;
+      }
+    }
+  }
+
+  // apply to mesh
+  player.group.position.copy(player.pos);
+  player.group.rotation.y = player.yaw;
+  player.group.rotation.z += tumble * dt;
+  tumble *= 0.9;
+  if (Math.abs(tumble) < 0.05) { tumble = 0; player.group.rotation.z = 0; }
+
+  // camera is user-controlled only (drag to look) — no auto-spin, avoids motion sickness
+
+  // obstacles: spin, and bounce the player back on contact (no penalty — just knockback)
+  for (const o of obstacles) {
+    o.group.rotation.y = elapsed * o.spin;
+    if (won || bumpCooldown > 0) continue;
+    const dx = player.pos.x - o.x, dz = player.pos.z - o.z;
+    if (Math.hypot(dx, dz) < o.r + player.radius) {
+      const d = Math.hypot(dx, dz) || 1;
+      const nx = dx / d, nz = dz / d;
+      // pop just outside the bumper
+      player.pos.x = o.x + nx * (o.r + player.radius + 0.05);
+      player.pos.z = o.z + nz * (o.r + player.radius + 0.05);
+      // punchy bounce: fling hard away from the obstacle + a big hop
+      player.vel.x = nx * 55;
+      player.vel.z = nz * 55;
+      player.vel.y = 16;
+      shakeAmt = 0.8;
+      tumble = (Math.random() < 0.5 ? 1 : -1) * 18;
+      bumpCooldown = 0.5;
+      break;
+    }
+  }
+
+  // letters: drift, bob, spin, pulse the next one
+  for (const l of letters) {
+    if (l.collected) continue;
+    l.t += dt;
+    l.mesh.position.x = l.base.x + Math.cos(l.t * 0.8 + l.phase) * l.driftR;
+    l.mesh.position.z = l.base.z + Math.sin(l.t * 1.1 + l.phase) * l.driftR;
+    l.mesh.position.y = l.base.y + Math.sin(l.t * 2) * 0.25;
+    l.mesh.rotation.y += dt * 1.6;
+    if (l.char === target[nextIndex]) {
+      const s = 1.2 + Math.sin(l.t * 6) * 0.12;
+      l.mesh.scale.setScalar(s);
+    }
+  }
+
+  resetCooldown = Math.max(0, resetCooldown - dt);
+  bumpCooldown = Math.max(0, bumpCooldown - dt);
+
+  const near = (l) => {
+    const dx = player.pos.x - l.mesh.position.x;
+    const dz = player.pos.z - l.mesh.position.z;
+    const dy = player.pos.y - l.mesh.position.y;
+    return Math.hypot(dx, dz) < 1.5 && Math.abs(dy) < 2.3;
+  };
+
+  if (!won && resetCooldown <= 0) {
+    const required = target[nextIndex];
+    // 1) collect ANY not-collected letter matching the required character (handles duplicates)
+    let collectedThisFrame = false;
+    for (const l of letters) {
+      if (l.collected) continue;
+      if (l.char === required && near(l)) {
+        l.collected = true;
+        ding(nextIndex);
+        nextIndex++;
+        collectedThisFrame = true;
+        updateHUD(); refreshLetters();
+        if (nextIndex === letters.length && !won) win();
+        break;
+      }
+    }
+    // 2) touching a letter that does NOT match (while not collecting the right one) resets
+    if (!collectedThisFrame) {
+      for (const l of letters) {
+        if (l.collected) continue;
+        if (l.char !== required && near(l)) { failReset(); break; }
+      }
+    }
+  }
+
+  // camera follow
+  const r = 11;
+  const cx = player.pos.x + r * Math.sin(camYaw) * Math.cos(camPitch);
+  const cy = player.pos.y + 3 + r * Math.sin(camPitch);
+  const cz = player.pos.z + r * Math.cos(camYaw) * Math.cos(camPitch);
+  camera.position.set(cx, cy, cz);
+  camera.lookAt(player.pos.x, player.pos.y + 1, player.pos.z);
+  if (shakeAmt > 0.001) {
+    camera.position.x += (Math.random() - 0.5) * shakeAmt;
+    camera.position.y += (Math.random() - 0.5) * shakeAmt;
+    shakeAmt *= 0.85;
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.033, clock.getDelta());
+  update(dt);
+  for (const d of decor) {
+    if (d.userData.drift) { d.position.x += d.userData.drift * dt; if (d.position.x > 55) d.position.x = -55; }
+    if (d.userData.bob !== undefined) { d.userData.bob += dt; d.position.y += Math.sin(d.userData.bob * 1.5) * 0.012; }
+  }
+  renderer.render(scene, camera);
+}
+
+// ---------------------------------------------------------------- win / replay
+let won = false;
+const overlay = document.getElementById("overlay");
+const winTitle = document.getElementById("winTitle");
+const winEmoji = document.getElementById("winEmoji");
+const confettiBox = document.getElementById("confetti");
+const replay = document.getElementById("replay");
+
+function burstConfetti() {
+  const colors = ["#ffd24a","#ff3cac","#2bdeee","#4dff88","#ffffff","#ff8a3c"];
+  for (let i = 0; i < 90; i++) {
+    const d = document.createElement("div");
+    d.className = "conf";
+    const s = 7 + Math.random() * 10;
+    d.style.left = (Math.random() * 100) + "vw";
+    d.style.width = s + "px";
+    d.style.height = (s * 1.4) + "px";
+    d.style.background = colors[(Math.random() * colors.length) | 0];
+    d.style.animationDuration = (1.6 + Math.random() * 1.8) + "s";
+    d.style.animationDelay = (Math.random() * 0.5) + "s";
+    confettiBox.appendChild(d);
+    setTimeout(() => d.remove(), 4200);
+  }
+}
+
+function failReset() {
+  mistakes++;
+  updateLives();
+  if (mistakes >= MAX_MISTAKES) { gameOver(); return; }
+  for (const l of letters) { l.collected = false; l.mesh.visible = true; }
+  nextIndex = 0;
+  updateHUD(); refreshLetters();
+  buzz();
+  resetCooldown = 1.3;
+  const f = document.getElementById("flash");
+  f.style.opacity = "0.5";
+  setTimeout(() => (f.style.opacity = "0"), 140);
+}
+
+function win() {
+  won = true;
+  winEmoji.textContent = ANIMAL_EMOJI[target] || "🎉";
+  winTitle.textContent = target + "!";
+  winSub.textContent = "you collected every letter";
+  fanfare();
+  overlay.classList.add("show");
+  burstConfetti();
+  const f = document.getElementById("flash");
+  f.style.background = "#ffd24a"; f.style.opacity = "0.35";
+  setTimeout(() => { f.style.opacity = "0"; f.style.background = "#ff2b2b"; }, 180);
+}
+function gameOver() {
+  won = true;
+  winEmoji.textContent = "💔";
+  winTitle.textContent = "Out of lives!";
+  winSub.textContent = "so close — try again!";
+  overlay.classList.add("show");
+  loseSfx();
+  const f = document.getElementById("flash");
+  f.style.background = "#ff2b2b"; f.style.opacity = "0.6";
+  setTimeout(() => (f.style.opacity = "0"), 220);
+}
+function startGame() {
+  won = false;
+  resetCooldown = 0;
+  mistakes = 0; updateLives();
+  overlay.classList.remove("show");
+  confettiBox.innerHTML = "";
+  buildPlatforms();
+  buildDecor();
+  buildObstacles();
+  const word = ANIMALS[(Math.random() * ANIMALS.length) | 0];
+  spawnLetters(word);
+  player.pos.set(0, 0.7, 0); player.vel.set(0, 0, 0);
+}
+replay.addEventListener("click", startGame);
+
+// show controls appropriate to the device
+const isTouch = (window.matchMedia && matchMedia("(pointer: coarse)").matches) || "ontouchstart" in window || navigator.maxTouchPoints > 0;
+document.body.classList.toggle("touch", isTouch);
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// kick off
+startGame();
+animate();
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/collect-letters/collect-letters-sw.js', { scope: '/collect-letters' }).catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

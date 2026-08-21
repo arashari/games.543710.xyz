@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>BIG NUMBERS</title>
+<meta name="theme-color" content="#0c0518" />
+<link rel="manifest" href="/big-numbers/manifest.json" />
+<link rel="apple-touch-icon" href="/big-numbers/big-numbers-icon.svg" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="BigNums" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Big Numbers" />
+<style>
+  :root {
+    --bg0: #1a0b2e;
+    --bg1: #2d0b45;
+    --accent: #ff3cac;
+    --accent2: #2bdeee;
+    --gold: #ffd24a;
+    --good: #4dff88;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    background: #0c0518;
+    color: #fff;
+    user-select: none;
+    touch-action: manipulation;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+      radial-gradient(120% 120% at 50% 0%, var(--bg1) 0%, var(--bg0) 45%, #07020f 100%);
+  }
+  #shake { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  #bgfx {
+    position: absolute; inset: -20%;
+    background:
+      radial-gradient(40% 40% at 20% 20%, rgba(255,60,172,.25), transparent 60%),
+      radial-gradient(40% 40% at 80% 70%, rgba(43,222,238,.22), transparent 60%);
+    filter: blur(10px);
+    animation: drift 14s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+  @keyframes drift {
+    from { transform: translate(-3%, -2%) scale(1.05); }
+    to   { transform: translate(3%, 2%) scale(1.12); }
+  }
+
+  #stage { position: relative; z-index: 2; text-align: center; width: min(92vw, 720px); }
+
+  .label { font-size: 13px; letter-spacing: .35em; text-transform: uppercase; opacity: .65; }
+
+  .stats { display: flex; gap: 14px; justify-content: center; margin-bottom: 6px; flex-wrap: wrap; }
+  .stat {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 14px; padding: 8px 16px; backdrop-filter: blur(4px);
+  }
+  .stat .v { font-size: 22px; font-weight: 800; margin-top: 2px; }
+  .chips .v { color: var(--gold); }
+  .mult  .v { color: var(--accent2); }
+
+  #scorewrap { margin: 6px 0 2px; }
+  #score {
+    font-size: clamp(44px, 13vw, 124px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -2px;
+    background: linear-gradient(180deg, #fff 0%, var(--gold) 55%, var(--accent) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(255,210,74,.45));
+    transform: scale(1);
+    will-change: transform;
+  }
+  #score.punch { animation: punch .28s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes punch {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.14); }
+    100% { transform: scale(1); }
+  }
+
+  #combo { font-size: 16px; font-weight: 800; color: var(--good); height: 24px; margin-top: 2px; opacity: 0; transition: opacity .2s; }
+  #combo.show { opacity: 1; }
+
+  #comboBar { height: 8px; width: min(70vw, 420px); margin: 10px auto 0; background: rgba(255,255,255,.1); border-radius: 99px; overflow: hidden; }
+  #comboFill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--good), var(--accent2)); border-radius: 99px; transition: width .08s linear; }
+
+  #tap {
+    margin-top: 26px;
+    width: min(64vw, 280px); height: min(64vw, 280px);
+    border-radius: 50%;
+    border: none;
+    font-size: 22px; font-weight: 900; letter-spacing: .08em;
+    color: #1a0033;
+    background: radial-gradient(circle at 35% 30%, #fff 0%, var(--gold) 30%, var(--accent) 100%);
+    box-shadow: 0 0 0 0 rgba(255,210,74,.6), 0 18px 50px rgba(0,0,0,.5);
+    cursor: pointer;
+    transition: transform .06s ease;
+    animation: bob 2.4s ease-in-out infinite;
+  }
+  #tap:active { transform: scale(.93); }
+  @keyframes bob { 0%,100%{ transform: translateY(0);} 50%{ transform: translateY(-10px);} }
+
+  #hint { position: fixed; bottom: 16px; width: 100%; text-align: center; font-size: 12px; opacity: .4; z-index: 3; }
+
+  #fx { position: fixed; inset: 0; z-index: 5; pointer-events: none; }
+  .pop {
+    position: fixed; z-index: 6; pointer-events: none;
+    font-weight: 900; font-size: 26px;
+    color: var(--gold);
+    text-shadow: 0 2px 8px rgba(0,0,0,.6);
+    animation: floatUp .9s ease-out forwards;
+  }
+  @keyframes floatUp {
+    0%   { transform: translate(-50%, 0) scale(.6); opacity: 0; }
+    15%  { transform: translate(-50%, -10px) scale(1.1); opacity: 1; }
+    100% { transform: translate(-50%, -110px) scale(1); opacity: 0; }
+  }
+  #mute {
+    position: fixed; top: 12px; right: 12px; z-index: 7;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+    color: #fff; border-radius: 10px; width: 40px; height: 40px; font-size: 18px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div id="shake">
+    <div id="bgfx"></div>
+    <div id="stage">
+      <div class="stats">
+        <div class="stat chips"><div class="label">Chips</div><div class="v" id="chipsV">10</div></div>
+        <div class="stat mult"><div class="label">Mult</div><div class="v" id="multV">x1.0</div></div>
+      </div>
+
+      <div id="scorewrap">
+        <div class="label">Score</div>
+        <div id="score">0</div>
+      </div>
+      <div id="combo"></div>
+      <div id="comboBar"><div id="comboFill"></div></div>
+
+      <button id="tap">PLAY</button>
+    </div>
+  </div>
+
+  <canvas id="fx"></canvas>
+  <button id="mute" title="mute">🔊</button>
+  <div id="hint">tap PLAY — chain taps fast for combo • progress saves automatically</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- number formatting (balatro-style suffixes) ----------
+  function fmt(n) {
+    if (!isFinite(n)) return "∞";
+    if (n < 1000) return Math.floor(n).toString();
+    const tier = Math.floor(Math.log10(n) / 3);
+    const short = ["", "K", "M", "B", "T"];
+    if (tier < 5) {
+      return (n / Math.pow(10, tier * 3)).toFixed(2) + short[tier];
+    }
+    const idx = tier - 4;                 // 1e15 -> aa
+    const tens = Math.floor((idx - 1) / 26);
+    const ones = (idx - 1) % 26;
+    const suf = String.fromCharCode(97 + tens) + String.fromCharCode(97 + ones);
+    return (n / Math.pow(10, tier * 3)).toFixed(2) + suf;
+  }
+
+  // ---------- state ----------
+  const SAVE_KEY = "bignumbers.v1";
+  const state = Object.assign(
+    { score: 0, chips: 10, mult: 1, taps: 0, combo: 0 },
+    JSON.parse(localStorage.getItem(SAVE_KEY) || "{}")
+  );
+  let comboTimer = null;
+  let lastComboShown = 0;
+
+  const el = {
+    score: document.getElementById("score"),
+    chips: document.getElementById("chipsV"),
+    mult: document.getElementById("multV"),
+    combo: document.getElementById("combo"),
+    comboFill: document.getElementById("comboFill"),
+    tap: document.getElementById("tap"),
+    shake: document.getElementById("shake"),
+    mute: document.getElementById("mute"),
+  };
+
+  function save() { localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }
+  function render() {
+    el.score.textContent = fmt(state.score);
+    el.chips.textContent = fmt(state.chips);
+    el.mult.textContent = "x" + state.mult.toFixed(1);
+  }
+  render();
+
+  // ---------- audio (synth, no asset files) ----------
+  let audioCtx = null, muted = false;
+  function ac() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+  function blip(combo) {
+    if (muted) return;
+    const c = ac();
+    const t = c.currentTime;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    const base = 440 * Math.pow(2, Math.min(combo, 24) / 24); // rises with combo
+    o.type = "triangle";
+    o.frequency.setValueAtTime(base, t);
+    o.frequency.exponentialRampToValueAtTime(base * 1.5, t + 0.06);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    o.connect(g).connect(c.destination);
+    o.start(t); o.stop(t + 0.2);
+  }
+  function chime() {
+    if (muted) return;
+    const c = ac(); const t0 = c.currentTime;
+    [0, 4, 7, 12].forEach((semi, i) => {
+      const o = c.createOscillator(), g = c.createGain();
+      const f = 523.25 * Math.pow(2, semi / 12);
+      o.type = "sine";
+      const t = t0 + i * 0.06;
+      o.frequency.setValueAtTime(f, t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.22, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      o.connect(g).connect(c.destination);
+      o.start(t); o.stop(t + 0.32);
+    });
+  }
+  el.mute.addEventListener("click", () => {
+    muted = !muted;
+    el.mute.textContent = muted ? "🔇" : "🔊";
+  });
+
+  // ---------- particles ----------
+  const cv = document.getElementById("fx");
+  const ctx = cv.getContext("2d");
+  let parts = [];
+  function resize() { cv.width = innerWidth; cv.height = innerHeight; }
+  resize(); addEventListener("resize", resize);
+
+  function burst(x, y, n) {
+    const colors = ["#ffd24a", "#ff3cac", "#2bdeee", "#4dff88", "#ffffff"];
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 2 + Math.random() * 7;
+      parts.push({
+        x, y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2,
+        life: 1, r: 2 + Math.random() * 4,
+        c: colors[(Math.random() * colors.length) | 0],
+      });
+    }
+  }
+  function tick() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.life -= 0.02;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      ctx.globalAlpha = Math.max(p.life, 0);
+      ctx.fillStyle = p.c;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(tick);
+  }
+  tick();
+
+  function shake(amt) {
+    const dx = (Math.random() - 0.5) * amt, dy = (Math.random() - 0.5) * amt;
+    el.shake.style.transform = `translate(${dx}px,${dy}px)`;
+    setTimeout(() => (el.shake.style.transform = ""), 60);
+  }
+
+  function floatText(x, y, txt) {
+    const d = document.createElement("div");
+    d.className = "pop";
+    d.textContent = "+" + txt;
+    d.style.left = x + "px";
+    d.style.top = y + "px";
+    document.body.appendChild(d);
+    setTimeout(() => d.remove(), 900);
+  }
+
+  // ---------- gameplay ----------
+  function play(x, y) {
+    state.combo++;
+    const comboMult = 1 + state.combo * 0.1;          // fast taps = bigger mult
+    const gain = state.chips * state.mult * comboMult;
+    state.score += gain;
+    state.taps++;
+
+    // milestones: permanent growth keeps numbers exploding
+    let milestone = false;
+    if (state.taps % 25 === 0) { state.mult += 1; milestone = true; }
+    if (state.taps % 50 === 0) { state.chips += 10; milestone = true; }
+
+    // visuals / audio
+    el.score.classList.remove("punch"); void el.score.offsetWidth; el.score.classList.add("punch");
+    burst(x, y, 14 + Math.min(state.combo, 20));
+    floatText(x, y, fmt(gain));
+    shake(Math.min(2 + state.combo * 0.4, 12));
+    blip(state.combo);
+    if (milestone) chime();
+
+    // combo UI
+    el.combo.textContent = "COMBO x" + state.combo + "  (+" + (comboMult).toFixed(1) + "x)";
+    el.combo.classList.add("show");
+    if (state.combo !== lastComboShown) { lastComboShown = state.combo; }
+    refreshComboBar();
+
+    // decay
+    clearTimeout(comboTimer);
+    comboTimer = setTimeout(() => {
+      state.combo = 0;
+      el.combo.classList.remove("show");
+      el.comboFill.style.width = "0%";
+    }, 1200);
+
+    render();
+    save();
+  }
+
+  function refreshComboBar() {
+    const pct = Math.max(0, Math.min(100, (state.combo / 30) * 100));
+    el.comboFill.style.width = pct + "%";
+  }
+
+  function pointFromEvent(e) {
+    if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.changedTouches && e.changedTouches[0]) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  el.tap.addEventListener("pointerdown", (e) => {
+    const p = pointFromEvent(e);
+    // if tapped the button use its center for nicer fx, else use pointer
+    const r = el.tap.getBoundingClientRect();
+    play(r.left + r.width / 2, r.top + r.height / 2);
+  });
+
+  // tapping anywhere also plays (more addictive)
+  document.getElementById("shake").addEventListener("pointerdown", (e) => {
+    if (e.target === el.tap) return;
+    const p = pointFromEvent(e);
+    play(p.x, p.y);
+  });
+
+  // keyboard for desktop fun
+  addEventListener("keydown", (e) => {
+    if (e.code === "Space" || e.code === "Enter") {
+      e.preventDefault();
+      const r = el.tap.getBoundingClientRect();
+      play(r.left + r.width / 2, r.top + r.height / 2);
+    }
+  });
+
+  // long-press / hold to auto-play (hold PLAY)
+  let holdInt = null;
+  function startHold(e) { e.preventDefault(); if (holdInt) return; const r = el.tap.getBoundingClientRect(); const cx = r.left + r.width/2, cy = r.top + r.height/2; holdInt = setInterval(() => play(cx, cy), 90); }
+  function stopHold() { clearInterval(holdInt); holdInt = null; }
+  el.tap.addEventListener("pointerdown", startHold);
+  el.tap.addEventListener("pointerup", stopHold);
+  el.tap.addEventListener("pointerleave", stopHold);
+})();
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/big-numbers/big-numbers-sw.js', { scope: '/big-numbers' }).catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "Lucky Slots",
+  "short_name": "LuckySlots",
+  "description": "Spin the reels, hold your luck, and stack modifiers to boost every win. Play money only — no real prizes.",
+  "id": "/slots",
+  "start_url": "/slots",
+  "scope": "/slots",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#0a0e2a",
+  "theme_color": "#0a0e2a",
+  "icons": [
+    { "src": "/slots/slots-icon.svg", "sizes": "192x192 512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

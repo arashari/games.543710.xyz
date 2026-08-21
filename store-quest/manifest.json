@@ -1,0 +1,16 @@
+{
+  "name": "Shopkeeper Quest 3D",
+  "short_name": "ShopQuest",
+  "description": "Run the market: grab stock, serve customers across the counter, beat your best streak.",
+  "id": "/store-quest",
+  "start_url": "/store-quest",
+  "scope": "/store-quest",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#161228",
+  "theme_color": "#161228",
+  "icons": [
+    { "src": "/store-quest/store-quest-icon.svg", "sizes": "192x192 512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
