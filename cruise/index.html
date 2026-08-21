@@ -409,9 +409,9 @@ function update(dt) {
 }
 function followCam(dt) {
   camera.position.x += (player.x * 0.6 - camera.position.x) * Math.min(1, dt * 5);
-  camera.position.y = 4.3;
-  camera.position.z = player.z + 9;
-  camera.lookAt(player.x * 0.4, 1.2, player.z - 10);
+  camera.position.y = 3.4;
+  camera.position.z = player.z + 6.5;
+  camera.lookAt(player.x * 0.5, 1.0, player.z - 6);
 }
 function animate() {
   requestAnimationFrame(animate);
@@ -458,7 +458,7 @@ function startGame() {
   lastSpawnZ = player.z - 30;
   overlay.classList.remove("show"); confettiBox.innerHTML = "";
   car.group.visible = true; car.group.rotation.set(0, 0, 0);
-  camera.position.set(0, 4.3, 9);
+  camera.position.set(0, 3.4, 6.5);
   updateHUD();
   spawnToast("Cruise! 🚗");
 }
