@@ -1,5 +1,5 @@
-const CACHE = 'web-addictive-bn-v1';
-const CORE = ['/big-numbers', '/big-numbers/manifest.json', '/big-numbers/big-numbers-icon.svg'];
+const CACHE = 'web-addictive-bn-v2';
+const CORE = ['/big-numbers/', '/big-numbers/manifest.json', '/big-numbers/big-numbers-icon.svg'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
 });

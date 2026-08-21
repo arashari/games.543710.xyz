@@ -1,5 +1,5 @@
-const CACHE = 'web-addictive-cl-v1';
-const CORE = ['/collect-letters', '/collect-letters/manifest.json', '/collect-letters/collect-letters-icon.svg'];
+const CACHE = 'web-addictive-cl-v2';
+const CORE = ['/collect-letters/', '/collect-letters/manifest.json', '/collect-letters/collect-letters-icon.svg'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
 });

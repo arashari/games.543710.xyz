@@ -1,5 +1,5 @@
-const CACHE = 'web-addictive-v1';
-const CORE = ['./', './collect-letters', './big-numbers', './store-quest', './slots'];
+const CACHE = 'web-addictive-v2';
+const CORE = ['./', './collect-letters/', './big-numbers/', './store-quest/', './slots/'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -25,7 +25,7 @@ self.addEventListener('fetch', (e) => {
         .then((res) => {
           const url = new URL(req.url);
           // cache our own files, plus the Three.js CDN so games work offline
-          if (res && res.ok) {
+          if (res && res.ok && !res.redirected) {
             if (url.origin === self.location.origin || /cdn\./.test(url.hostname)) {
               const copy = res.clone();
               caches.open(CACHE).then((c) => c.put(req, copy));

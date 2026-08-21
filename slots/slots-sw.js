@@ -1,5 +1,5 @@
-const CACHE = 'web-addictive-slots-v1';
-const CORE = ['/slots', '/slots/manifest.json', '/slots/slots-icon.svg'];
+const CACHE = 'web-addictive-slots-v2';
+const CORE = ['/slots/', '/slots/manifest.json', '/slots/slots-icon.svg'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
 });

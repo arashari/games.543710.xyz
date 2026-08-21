@@ -1,5 +1,5 @@
-const CACHE = 'web-addictive-sq-v1';
-const CORE = ['/store-quest', '/store-quest/manifest.json', '/store-quest/store-quest-icon.svg'];
+const CACHE = 'web-addictive-sq-v2';
+const CORE = ['/store-quest/', '/store-quest/manifest.json', '/store-quest/store-quest-icon.svg'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
 });
